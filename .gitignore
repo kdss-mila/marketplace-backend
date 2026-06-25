@@ -1,0 +1,32 @@
+## .NET
+bin/
+obj/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+.vs/
+.vscode/
+*.log
+
+## Rider / Visual Studio
+.idea/
+*.DotSettings.user
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Build outputs
+build/
+out/
+publish/
+
+## Local config / secrets
+appsettings.Local.json
+*.local.json
+secrets.json
+
+## Uploads (local file storage)
+01-Api/Marketplace.Api/wwwroot/uploads/*
+!01-Api/Marketplace.Api/wwwroot/uploads/.gitkeep
