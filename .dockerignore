@@ -1,0 +1,45 @@
+# Build outputs (não devem ir para o contexto do Docker)
+**/bin/
+**/obj/
+**/out/
+**/publish/
+**/build/
+
+# IDEs / editores
+.vs/
+.vscode/
+.idea/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.DotSettings.user
+
+# Git
+.git/
+.gitignore
+.github/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Segredos / configs locais
+appsettings.Local.json
+*.local.json
+secrets.json
+
+# Uploads locais (o volume do compose cuida disso dentro do container)
+01-Api/Marketplace.Api/wwwroot/uploads/*
+!01-Api/Marketplace.Api/wwwroot/uploads/.gitkeep
+
+# Próprio Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# README e docs (não precisa estar na imagem)
+README.md

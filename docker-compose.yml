@@ -1,0 +1,68 @@
+# =========================================================================
+# docker-compose - Marketplace Backend (.NET 9)
+#
+# Sobe a API em http://localhost:5066 (mesma porta usada em dev pelo
+# launchSettings.json), mapeando para a porta 8080 que o Kestrel ouve
+# dentro do container.
+#
+# Como rodar:
+#   docker compose up --build
+#   docker compose down
+# =========================================================================
+
+services:
+  marketplace-api:
+    container_name: marketplace-api
+    image: marketplace-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5066:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      # Configurações de plataforma (sobrescrevem appsettings.json).
+      # Use a notação __ para representar a hierarquia do JSON.
+      PlatformSettings__PixKey: marketplace@pix.com.br
+      PlatformSettings__CommissionRate: "0.10"
+      # Connection string do Postgres fica vazia enquanto roda em InMemory.
+      # Quando migrar para Postgres (ver README §7), preencha aqui ou em
+      # um arquivo .env e descomente o serviço "postgres" abaixo.
+      ConnectionStrings__Postgress: ""
+    volumes:
+      # Persiste os comprovantes salvos pelo LocalFileStorageService entre
+      # reinícios do container. O caminho dentro do container espelha a
+      # estrutura de wwwroot/uploads do projeto.
+      - marketplace-uploads:/app/wwwroot/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/swagger/index.html >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # -----------------------------------------------------------------------
+  # Postgres (opcional)
+  # Hoje o backend roda 100% InMemory. Quando os repositórios Dapper forem
+  # implementados (ver README §7) basta descomentar este serviço, preencher
+  # ConnectionStrings__Postgress acima apontando para "postgres" e trocar
+  # IocConfiguration para RegisterRepositoriesPostgres().
+  # -----------------------------------------------------------------------
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: marketplace-postgres
+  #   environment:
+  #     POSTGRES_USER: marketplace
+  #     POSTGRES_PASSWORD: marketplace
+  #     POSTGRES_DB: marketplace
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - marketplace-pgdata:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+volumes:
+  marketplace-uploads:
+  # marketplace-pgdata:
