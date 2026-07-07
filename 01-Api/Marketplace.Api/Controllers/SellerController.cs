@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Marketplace.Application.DTOs.Common;
 using Marketplace.Application.DTOs.Seller;
@@ -6,6 +7,7 @@ using Marketplace.Application.UseCases.Seller;
 namespace Marketplace.Api.Controllers
 {
     [ApiController]
+    [Authorize(Roles = "seller")]
     [Route("api/seller")]
     public class SellerController(
         ListSellerProductsUseCase listProducts,

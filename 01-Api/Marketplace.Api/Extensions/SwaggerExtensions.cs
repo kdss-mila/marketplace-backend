@@ -13,19 +13,19 @@ namespace Marketplace.Api.Extensions
                 {
                     Title = "Marketplace API",
                     Version = "v1",
-                    Description = "API do Marketplace MVP — dados em memória, autenticação via fake token.",
+                    Description = "API do Marketplace MVP — persistência Postgres, autenticação JWT (HS256).",
                 });
 
-                // Esquema de "Bearer" apenas para permitir colar o token (ex.: token-admin)
-                // no botão Authorize do Swagger UI. NÃO faz validação criptográfica.
+                // Esquema Bearer para colar o JWT devolvido por /api/auth/login
+                // no botão Authorize do Swagger UI.
                 var scheme = new OpenApiSecurityScheme
                 {
                     Name = "Authorization",
                     In = ParameterLocation.Header,
                     Type = SecuritySchemeType.Http,
                     Scheme = "Bearer",
-                    BearerFormat = "FakeToken",
-                    Description = "Cole um dos tokens fixos (token-buyer / token-seller / token-admin) ou um token devolvido pelo /api/auth/login.",
+                    BearerFormat = "JWT",
+                    Description = "Cole o token JWT devolvido por /api/auth/login (sem o prefixo Bearer).",
                 };
 
                 options.AddSecurityDefinition("Bearer", scheme);

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Marketplace.Domain.Interface.Repository;
 using Marketplace.Domain.Interface.Service;
@@ -6,36 +7,29 @@ using Marketplace.Domain.Model;
 namespace Marketplace.Infrastructure.Auth
 {
     /// <summary>
-    /// Lê o header "Authorization: Bearer &lt;token&gt;" da request HTTP atual,
-    /// faz lookup no ITokenRepository (dicionário token-&gt;userId) e devolve o
-    /// usuário correspondente. Retorna null se não houver token válido.
-    /// Substituirá, no futuro, a integração real com JWT.
+    /// Lê o JWT já validado pelo middleware JwtBearer (HttpContext.User) e devolve
+    /// o UserModel atual a partir do repositório. Isso mantém a paridade com o
+    /// mock antigo que resolvia o usuário por token e permite que UseCases
+    /// continuem chamando GetCurrent() sem tocar em HttpContext.
     /// </summary>
     public class CurrentUserResolver(
         IHttpContextAccessor httpContextAccessor,
-        ITokenRepository tokenRepository,
         IUserRepository userRepository) : ICurrentUserResolver
     {
         private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
-        private readonly ITokenRepository _tokenRepository = tokenRepository;
         private readonly IUserRepository _userRepository = userRepository;
 
         public async Task<UserModel?> GetCurrent()
         {
             var http = _httpContextAccessor.HttpContext;
-            if (http is null) return null;
+            var principal = http?.User;
+            if (principal?.Identity is null || !principal.Identity.IsAuthenticated) return null;
 
-            var header = http.Request.Headers.Authorization.ToString();
-            if (string.IsNullOrWhiteSpace(header)) return null;
+            var userId =
+                principal.FindFirstValue(ClaimTypes.NameIdentifier) ??
+                principal.FindFirstValue("sub");
 
-            const string prefix = "Bearer ";
-            if (!header.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return null;
-
-            var token = header[prefix.Length..].Trim();
-            if (string.IsNullOrEmpty(token)) return null;
-
-            var userId = await _tokenRepository.GetUserId(token);
-            if (userId is null) return null;
+            if (string.IsNullOrWhiteSpace(userId)) return null;
 
             return await _userRepository.GetById(userId);
         }

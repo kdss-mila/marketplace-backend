@@ -9,6 +9,6 @@ namespace Marketplace.Application.UseCases.Catalog
         private readonly IProductRepository _productRepository = productRepository;
 
         public Task<IEnumerable<ProductModel>> Execute(ListProductsRequest request) =>
-            _productRepository.Search(request.Q, request.CategoryId);
+            _productRepository.Search(request.Q, request.CategoryId, request.IncludeSubcategories);
     }
 }

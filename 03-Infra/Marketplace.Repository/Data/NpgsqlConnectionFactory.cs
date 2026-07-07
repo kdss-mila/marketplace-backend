@@ -14,7 +14,7 @@ namespace Marketplace.Repository.Data
     /// </summary>
     public class NpgsqlConnectionFactory(IOptions<ConnectionStrings> options) : IDbConnectionFactory
     {
-        private readonly string _connectionString = options.Value.Postgress;
+        private readonly string _connectionString = options.Value.Postgres;
 
         public IDbConnection Create() => new NpgsqlConnection(_connectionString);
     }

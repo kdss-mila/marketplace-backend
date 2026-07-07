@@ -1,9 +1,11 @@
 # =========================================================================
-# docker-compose - Marketplace Backend (.NET 9)
+# docker-compose - Marketplace Backend (.NET 9 + Postgres gerenciado)
 #
-# Sobe a API em http://localhost:5066 (mesma porta usada em dev pelo
-# launchSettings.json), mapeando para a porta 8080 que o Kestrel ouve
-# dentro do container.
+# A API roda em http://localhost:5066 (mesma porta usada em dev por
+# launchSettings.json), mapeando para a porta 8080 dentro do container.
+# A persistência é feita em Postgres — as credenciais podem ser passadas
+# por variáveis de ambiente (.env local) ou preenchendo os defaults abaixo
+# apenas para dev.
 #
 # Como rodar:
 #   docker compose up --build
@@ -23,13 +25,20 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       # Configurações de plataforma (sobrescrevem appsettings.json).
-      # Use a notação __ para representar a hierarquia do JSON.
+      # A notação __ representa a hierarquia do JSON.
       PlatformSettings__PixKey: marketplace@pix.com.br
       PlatformSettings__CommissionRate: "0.10"
-      # Connection string do Postgres fica vazia enquanto roda em InMemory.
-      # Quando migrar para Postgres (ver README §7), preencha aqui ou em
-      # um arquivo .env e descomente o serviço "postgres" abaixo.
-      ConnectionStrings__Postgress: ""
+      # Preencha com o seu Postgres gerenciado (Render/Neon/AWS RDS/etc.).
+      ConnectionStrings__Postgres: "${POSTGRES_CONNECTION_STRING:-}"
+      # JWT — obrigatório: SigningKey precisa ter no mínimo 32 chars.
+      JwtSettings__SigningKey: "${JWT_SIGNING_KEY:-}"
+      JwtSettings__Issuer: "marketplace-api"
+      JwtSettings__Audience: "marketplace-web"
+      JwtSettings__ExpiresHours: "8"
+      # Lista das origens autorizadas pelo CORS. Use um índice por entrada
+      # (Cors__AllowedOrigins__0, __1, ...) para adicionar mais domínios.
+      # Se ficar vazio, o backend cai no fallback de dev (localhost:5173/4173).
+      Cors__AllowedOrigins__0: "${FRONTEND_ORIGIN:-}"
     volumes:
       # Persiste os comprovantes salvos pelo LocalFileStorageService entre
       # reinícios do container. O caminho dentro do container espelha a
@@ -43,26 +52,5 @@ services:
       retries: 3
       start_period: 15s
 
-  # -----------------------------------------------------------------------
-  # Postgres (opcional)
-  # Hoje o backend roda 100% InMemory. Quando os repositórios Dapper forem
-  # implementados (ver README §7) basta descomentar este serviço, preencher
-  # ConnectionStrings__Postgress acima apontando para "postgres" e trocar
-  # IocConfiguration para RegisterRepositoriesPostgres().
-  # -----------------------------------------------------------------------
-  # postgres:
-  #   image: postgres:16-alpine
-  #   container_name: marketplace-postgres
-  #   environment:
-  #     POSTGRES_USER: marketplace
-  #     POSTGRES_PASSWORD: marketplace
-  #     POSTGRES_DB: marketplace
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - marketplace-pgdata:/var/lib/postgresql/data
-  #   restart: unless-stopped
-
 volumes:
   marketplace-uploads:
-  # marketplace-pgdata:

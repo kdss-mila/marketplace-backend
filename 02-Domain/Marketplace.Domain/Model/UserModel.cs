@@ -14,6 +14,6 @@ namespace Marketplace.Domain.Model
         public SellerProfileModel? SellerProfile { get; set; }
 
         [JsonIgnore]
-        public string Password { get; set; } = string.Empty;
+        public string PasswordHash { get; set; } = string.Empty;
     }
 }

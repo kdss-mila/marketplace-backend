@@ -2,6 +2,6 @@ namespace Marketplace.Domain.Settings
 {
     public record ConnectionStrings
     {
-        public string Postgress { get; set; } = string.Empty;
+        public string Postgres { get; set; } = string.Empty;
     }
 }

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Marketplace.Application.Common.Exceptions;
 using Marketplace.Application.DTOs.Orders;
@@ -6,6 +7,7 @@ using Marketplace.Application.UseCases.Orders;
 namespace Marketplace.Api.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/orders")]
     public class OrdersController(
         CreateOrderUseCase createOrder,

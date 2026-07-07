@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Marketplace.Application.DTOs.Auth;
 using Marketplace.Application.UseCases.Auth;
@@ -15,10 +16,12 @@ namespace Marketplace.Api.Controllers
         private readonly RegisterUseCase _registerUseCase = registerUseCase;
         private readonly GetMeUseCase _getMeUseCase = getMeUseCase;
 
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request)
             => Ok(await _loginUseCase.Execute(request));
 
+        [AllowAnonymous]
         [HttpPost("register")]
         public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
         {
@@ -26,6 +29,7 @@ namespace Marketplace.Api.Controllers
             return StatusCode(StatusCodes.Status201Created, response);
         }
 
+        [Authorize]
         [HttpGet("me")]
         public async Task<IActionResult> Me() => Ok(await _getMeUseCase.Execute());
     }

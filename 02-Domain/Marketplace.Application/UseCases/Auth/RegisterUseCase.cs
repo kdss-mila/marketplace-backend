@@ -4,17 +4,18 @@ using Marketplace.Application.Common.Validation;
 using Marketplace.Application.DTOs.Auth;
 using Marketplace.Domain.Enums;
 using Marketplace.Domain.Interface.Repository;
+using Marketplace.Domain.Interface.Service;
 using Marketplace.Domain.Model;
 
 namespace Marketplace.Application.UseCases.Auth
 {
     public class RegisterUseCase(
         IUserRepository userRepository,
-        ITokenRepository tokenRepository,
+        IJwtService jwtService,
         IValidator<RegisterRequest> validator)
     {
         private readonly IUserRepository _userRepository = userRepository;
-        private readonly ITokenRepository _tokenRepository = tokenRepository;
+        private readonly IJwtService _jwtService = jwtService;
         private readonly IValidator<RegisterRequest> _validator = validator;
 
         public async Task<AuthResponse> Execute(RegisterRequest request)
@@ -33,11 +34,11 @@ namespace Marketplace.Application.UseCases.Auth
                 Cpf = new string(request.Cpf.Where(char.IsDigit).ToArray()),
                 Role = UserRole.Buyer,
                 Banned = false,
-                Password = request.Password,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             };
 
             await _userRepository.Add(user);
-            var token = await _tokenRepository.Create(user.Id);
+            var token = _jwtService.GenerateToken(user);
 
             return new AuthResponse { User = user, Token = token };
         }

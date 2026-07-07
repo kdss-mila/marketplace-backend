@@ -1,12 +1,9 @@
 # Marketplace Backend
 
 API REST do MVP de Marketplace (modelo Mercado Livre, fluxo financeiro manual).
-Construída em **.NET 9** com arquitetura **DDD em camadas** espelhando o esqueleto
-do projeto LolOxiBot (`01-Api / 02-Domain / 03-Infra`).
-
-> Aviso importante: nesta primeira iteração **não há autenticação real**
-> (sem JWT, sem hash de senha, sem Serilog). Esse cross-cutting foi adiado para
-> um próximo ciclo — antes de qualquer deploy público, adicionar JWT + BCrypt.
+Construída em **.NET 9** com arquitetura **DDD em camadas**
+(`01-Api / 02-Domain / 03-Infra`), persistência em **PostgreSQL** via Dapper e
+autenticação **JWT + BCrypt**.
 
 ---
 
@@ -16,27 +13,59 @@ do projeto LolOxiBot (`01-Api / 02-Domain / 03-Infra`).
 |---|---|
 | Runtime | .NET 9 (`net9.0`) |
 | HTTP | ASP.NET Core Controllers + Swashbuckle |
-| Persistência | **InMemoryStore (Singleton)** hoje · Dapper + Npgsql preparados para Postgres |
+| Persistência | **PostgreSQL** (Npgsql + Dapper) |
+| Migrações | **DbUp** (scripts SQL como Embedded Resources, executados no startup) |
 | Validação | FluentValidation |
 | Logging | `ILogger<T>` built-in |
-| Auth | "Fake token" (dicionário token→userId em memória) |
+| Auth | **JWT HS256** (`Microsoft.AspNetCore.Authentication.JwtBearer`) + senha em **BCrypt** |
 
 ## 2. Estrutura de pastas
 
 ```
 marketplace-backend/
 ├── Marketplace.sln
-├── 01-Api/Marketplace.Api/              # Host ASP.NET Core (Controllers, Middlewares, Program.cs)
+├── 01-Api/Marketplace.Api/                  # Host ASP.NET Core (Controllers, Middlewares, Program.cs)
 ├── 02-Domain/
-│   ├── Marketplace.Domain/              # Models, Enums, Interfaces (Repository + Service), Settings
-│   └── Marketplace.Application/         # UseCases, DTOs, Validators, Exceptions
+│   ├── Marketplace.Domain/                  # Models, Enums, Interfaces (Repository + Service), Settings (Jwt/Platform/ConnectionStrings)
+│   └── Marketplace.Application/             # UseCases, DTOs, Validators, Exceptions
 └── 03-Infra/
-    ├── Marketplace.Setup/               # Composition root (IServiceCollectionExtensions.IocConfiguration)
-    ├── Marketplace.Repository/          # Data/ (IDbConnectionFactory + Npgsql) · InMemory/ (atual) · Postgres/ (placeholder)
-    └── Marketplace.Infrastructure/      # Auth/CurrentUserResolver · Shipping/MockShippingCalculator · Storage/LocalFileStorageService
+    ├── Marketplace.Setup/                   # Composition root (IServiceCollectionExtensions.IocConfiguration)
+    ├── Marketplace.Repository/              # Data/ (NpgsqlConnectionFactory + DatabaseMigrator) · Migrations/*.sql · Postgres/*Repository
+    └── Marketplace.Infrastructure/          # Auth/ (JwtService, CurrentUserResolver) · Shipping/MockShippingCalculator · Storage/LocalFileStorageService
 ```
 
 ## 3. Como rodar
+
+### Requisitos
+
+- .NET SDK 9.
+- Um Postgres acessível (Render, Neon, RDS, ou local via `docker run postgres`).
+
+### Configuração
+
+Em [`01-Api/Marketplace.Api/appsettings.Development.json`](01-Api/Marketplace.Api/appsettings.Development.json)
+já vem preenchido o Postgres gerenciado do Render usado no desenvolvimento
+desta iteração. Sobrescreva conforme necessário:
+
+```jsonc
+{
+  "ConnectionStrings": {
+    "Postgres": "Host=...;Database=...;Username=...;Password=...;SSL Mode=Require;Trust Server Certificate=true"
+  },
+  "JwtSettings": {
+    "SigningKey": "min-32-chars-please-change-me",
+    "Issuer": "marketplace-api",
+    "Audience": "marketplace-web",
+    "ExpiresHours": 8
+  }
+}
+```
+
+Em produção use variáveis de ambiente equivalentes:
+`ConnectionStrings__Postgres`, `JwtSettings__SigningKey`, etc. — já
+espelhadas no [`docker-compose.yml`](docker-compose.yml).
+
+### Executando
 
 ```powershell
 cd marketplace-backend
@@ -48,51 +77,48 @@ dotnet run --project 01-Api/Marketplace.Api --launch-profile http
 - Swagger UI: `http://localhost:5066/swagger`
 - CORS já habilitado para `http://localhost:5173` (Vite dev) e `http://localhost:4173` (Vite preview).
 
+Na primeira execução o [`DatabaseMigrator`](03-Infra/Marketplace.Repository/Data/DatabaseMigrator.cs)
+aplica `001_init_schema.sql` (cria tabelas) e `002_seed_data.sql` (semeia
+3 usuários / 4 categorias / 6 produtos / 2 pedidos / 1 repasse). Os scripts
+são idempotentes: subir novamente já não reprocessa nada.
+
 ### Integrando com o frontend
 
-O frontend ([marketplace-frontend](../marketplace-frontend)) chama `baseURL: '/api'`
-em [`src/lib/axios.ts`](../marketplace-frontend/src/lib/axios.ts). Duas opções:
-
-1. **Vite proxy (recomendado)** — adicionar no `vite.config.ts` do frontend:
-   ```ts
-   server: {
-     proxy: { '/api': 'http://localhost:5066' }
-   }
-   ```
-2. **CORS direto** — não precisa de proxy; o backend já libera as origens dev.
-
-Antes de subir o backend lembre-se de **desativar o MSW** no frontend
-(`marketplace-frontend/src/main.tsx` ou onde está o `worker.start()`),
-caso contrário o service worker intercepta as chamadas antes de chegarem na API.
+O frontend ([marketplace-frontend](../marketplace-frontend)) chama
+`baseURL: '/api'` em [`src/lib/axios.ts`](../marketplace-frontend/src/lib/axios.ts)
+e já tem um `server.proxy` no `vite.config.ts` apontando para `http://localhost:5066`.
+Basta rodar `npm run dev` no frontend depois de subir a API.
 
 ## 4. Credenciais de teste
 
-Os 3 usuários abaixo (senha `123456`) já são seedados na inicialização e
-mantêm os **tokens fixos** prontos para uso direto (Swagger, Postman, `.http`):
+Os 3 usuários abaixo (senha `123456`, hash BCrypt pré-gerado) são semeados
+na migration `002_seed_data.sql`:
 
-| Role | E-mail | Senha | Token fake fixo |
-|---|---|---|---|
-| Buyer | `comprador@teste.com` | `123456` | `token-buyer` |
-| Seller | `vendedor@teste.com` | `123456` | `token-seller` |
-| Admin | `admin@teste.com` | `123456` | `token-admin` |
+| Role | E-mail | Senha |
+|---|---|---|
+| Buyer | `comprador@teste.com` | `123456` |
+| Seller | `vendedor@teste.com` | `123456` |
+| Admin | `admin@teste.com` | `123456` |
 
-Para usar no Swagger, clique em "Authorize" e cole o token (sem o prefixo `Bearer`).
-Em Postman/curl: `Authorization: Bearer token-admin`.
+Para autenticar chame `POST /api/auth/login` e cole o `token` retornado no
+botão "Authorize" do Swagger (sem o prefixo `Bearer`). Em Postman/curl:
+`Authorization: Bearer <jwt>`.
 
 ## 5. Endpoints (27 rotas, todas sob `/api`)
 
 | Método | Rota | Auth | Descrição |
 |---|---|---|---|
-| POST | `/api/auth/login` | público | `{email,password}` → `{user,token}` |
+| POST | `/api/auth/login` | público | `{email,password}` → `{user,token(JWT)}` |
 | POST | `/api/auth/register` | público | Cria conta buyer (201) |
 | GET  | `/api/auth/me` | Bearer | User atual |
-| GET  | `/api/products` | público | `?q=&categoryId=` filtros opcionais |
+| GET  | `/api/products` | público | `?q=&categoryId=&includeSubcategories=` |
 | GET  | `/api/products/:id` | público | 404 se não encontrar |
 | GET  | `/api/categories` | público | Árvore plana |
 | POST | `/api/orders` | Bearer | `{productId,quantity,address,shippingCost}` → `{order, pixKey}` (201) |
 | POST | `/api/orders/:id/receipt` | Bearer (dono) | `multipart/form-data` campo `receipt` |
 | GET  | `/api/orders/me` | Bearer | Histórico do buyer |
 | POST | `/api/shipping/quote` | público | `{cepOrigem,cepDestino,peso}` (mock) |
+| GET  | `/api/shipping/address/:cep` | público | Proxy ViaCEP (`{cep,street,neighborhood,city,state,complement?}`) |
 | GET  | `/api/seller/products` | Seller | Produtos do vendedor logado |
 | POST | `/api/seller/products` | Seller | Cria anúncio (201) |
 | PUT  | `/api/seller/products/:id` | Seller | Atualização parcial |
@@ -111,14 +137,14 @@ Em Postman/curl: `Authorization: Bearer token-admin`.
 | GET  | `/api/admin/repasses` | Admin | Lista repasses (pagos e pendentes) |
 | POST | `/api/admin/repasses/:id/mark-paid` | Admin | Marca repasse como pago |
 
-### Contratos críticos preservados (paridade total com o mock MSW do frontend)
+### Contratos preservados (paridade total com o frontend)
 
 - `OrderStatus` serializado em **PT-BR com acentos literais**: `"Aguardando Comprovante"`, `"Em Análise"`, `"Pago"`, `"Enviado"`, `"Entregue"`.
 - `UserRole` em minúsculas: `"buyer"`, `"seller"`, `"admin"`.
-- Preços e pesos como `decimal` em reais (sem centavos, sem string).
+- Preços e pesos como `decimal` em reais.
 - Datas em ISO-8601 UTC.
-- Erros sempre `{ "message": "..." }` em português, com 400 / 401 / 403 / 404.
-- JSON em **camelCase** com campos `null` explícitos (paridade com o shape do mock).
+- Erros sempre `{ "message": "..." }` em português (400 / 401 / 403 / 404 / 502).
+- JSON em **camelCase** com campos `null` explícitos.
 
 ## 6. Regras de negócio relevantes
 
@@ -130,28 +156,36 @@ Em Postman/curl: `Authorization: Bearer token-admin`.
 - **`GET /api/admin/orders`** retorna somente status `Em Análise`.
 - **Criar pedido (`POST /api/orders`)** devolve `{ order, pixKey }`, onde `pixKey`
   vem de `PlatformSettings.PixKey` (default `marketplace@pix.com.br`).
+- **`GET /api/products?includeSubcategories=true`** inclui produtos das
+  categorias filhas da categoria selecionada (usado pela home ao clicar em
+  um departamento com subcategorias).
 
-## 7. Migração futura para PostgreSQL
+## 7. Persistência (PostgreSQL)
 
-A camada de persistência já está abstraída por interfaces no Domain
-(`IUserRepository`, `IProductRepository`, ...). Hoje rodam implementações
-`InMemory*` em [`Marketplace.Repository/InMemory/`](03-Infra/Marketplace.Repository/InMemory).
+Tabelas gerenciadas em [`03-Infra/Marketplace.Repository/Migrations/`](03-Infra/Marketplace.Repository/Migrations)
+via [DbUp](https://dbup.readthedocs.io/):
 
-Para trocar quando o banco estiver pronto:
+- `001_init_schema.sql` — `users`, `seller_profiles`, `categories`,
+  `products`, `product_images`, `orders`, `repasses`.
+- `002_seed_data.sql` — dados demo (3 usuários com senha `123456` já em
+  BCrypt, 4 categorias, 6 produtos, 2 pedidos, 1 repasse).
 
-1. Preencher `ConnectionStrings:Postgress` em `appsettings.json`.
-2. Implementar repositórios Dapper em [`03-Infra/Marketplace.Repository/Postgres/`](03-Infra/Marketplace.Repository/Postgres)
-   usando o `IDbConnectionFactory` já registrado.
-3. Em [`Marketplace.Setup/IServiceCollectionExtensions.cs`](03-Infra/Marketplace.Setup/IServiceCollectionExtensions.cs)
-   trocar a chamada `RegisterRepositoriesInMemory()` por `RegisterRepositoriesPostgres()`.
+Ao adicionar novos scripts, use o próximo prefixo numérico (`003_...`,
+`004_...`) e marque como `<EmbeddedResource>` — o csproj já tem o padrão
+`Migrations\*.sql`. Note que a substituição de variáveis do DbUp está
+desligada (`WithVariablesDisabled()`) para não conflitar com strings que
+contenham `$` (ex.: hashes BCrypt).
 
-UseCases, Controllers, DTOs e validators **não mudam**.
+Cada `Postgres*Repository` usa Dapper com `IDbConnectionFactory` (uma
+conexão por operação, sem pooling manual — o próprio Npgsql já cuida).
 
-## 8. Próximos passos sugeridos
+## 8. Docker
 
-- **Segurança**: substituir o fake token por JWT (`Microsoft.AspNetCore.Authentication.JwtBearer`) e hashar senha com `BCrypt.Net-Next`.
-- **Persistência**: implementar repositórios Postgres com Dapper + scripts SQL versionados (DbUp ou FluentMigrator).
-- **Comprovantes**: trocar `LocalFileStorageService` por integração com AWS S3.
-- **Frete**: trocar `MockShippingCalculator` por integração real (Correios / Melhor Envio).
-- **Logging estruturado**: adicionar Serilog com sink Console/File/Seq.
-- **Testes**: criar projeto `Marketplace.UnitTests` com xUnit + FluentAssertions cobrindo UseCases.
+O [`docker-compose.yml`](docker-compose.yml) sobe apenas a API (o Postgres
+é gerenciado no Render, então não é replicado localmente):
+
+```powershell
+$env:POSTGRES_CONNECTION_STRING = "Host=...;Database=...;Username=...;Password=...;SSL Mode=Require;Trust Server Certificate=true"
+$env:JWT_SIGNING_KEY = "min-32-chars-please-change-me"
+docker compose up --build
+```

@@ -5,7 +5,7 @@ namespace Marketplace.Domain.Interface.Repository
     public interface IProductRepository
     {
         Task<IEnumerable<ProductModel>> GetAll();
-        Task<IEnumerable<ProductModel>> Search(string? query, string? categoryId);
+        Task<IEnumerable<ProductModel>> Search(string? query, string? categoryId, bool includeSubcategories);
         Task<ProductModel?> GetById(string id);
         Task<IEnumerable<ProductModel>> GetBySellerId(string sellerId);
         Task<ProductModel?> GetBySellerIdAndId(string sellerId, string id);

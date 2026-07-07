@@ -6,12 +6,19 @@ namespace Marketplace.Api.Controllers
 {
     [ApiController]
     [Route("api/shipping")]
-    public class ShippingController(CalculateShippingUseCase calculateShipping) : ControllerBase
+    public class ShippingController(
+        CalculateShippingUseCase calculateShipping,
+        LookupAddressByCepUseCase lookupAddress) : ControllerBase
     {
         private readonly CalculateShippingUseCase _calculateShipping = calculateShipping;
+        private readonly LookupAddressByCepUseCase _lookupAddress = lookupAddress;
 
         [HttpPost("quote")]
         public async Task<IActionResult> Quote([FromBody] ShippingQuoteRequest request)
             => Ok(await _calculateShipping.Execute(request));
+
+        [HttpGet("address/{cep}")]
+        public async Task<IActionResult> Address(string cep)
+            => Ok(await _lookupAddress.Execute(cep));
     }
 }

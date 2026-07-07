@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Marketplace.Application.DTOs.Admin;
 using Marketplace.Application.DTOs.Common;
@@ -6,6 +7,7 @@ using Marketplace.Application.UseCases.Admin;
 namespace Marketplace.Api.Controllers
 {
     [ApiController]
+    [Authorize(Roles = "admin")]
     [Route("api/admin")]
     public class AdminController(
         ListUsersUseCase listUsers,

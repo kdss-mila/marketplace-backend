@@ -9,12 +9,18 @@
 
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.35" />
+    <PackageReference Include="dbup-core" Version="6.0.4" />
+    <PackageReference Include="dbup-postgresql" Version="6.0.3" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.0" />
-    <PackageReference Include="Npgsql" Version="9.0.1" />
+    <PackageReference Include="Npgsql" Version="9.0.2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\02-Domain\Marketplace.Domain\Marketplace.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations\*.sql" />
   </ItemGroup>
 
 </Project>
