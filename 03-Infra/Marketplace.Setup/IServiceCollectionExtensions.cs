@@ -52,7 +52,7 @@ namespace Marketplace.Setup
             .AddScoped<ICurrentUserResolver, CurrentUserResolver>()
             .AddSingleton<IJwtService, JwtService>()
             .AddSingleton<IShippingCalculator, MockShippingCalculator>()
-            .AddScoped<IFileStorageService, R2StorageService>();
+            .AddSingleton<IFileStorageService, R2StorageService>();
 
         private static IServiceCollection RegisterUseCases(this IServiceCollection services) => services
             // Auth

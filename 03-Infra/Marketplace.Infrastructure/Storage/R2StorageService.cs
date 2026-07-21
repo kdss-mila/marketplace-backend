@@ -1,4 +1,3 @@
-using Amazon;
 using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
@@ -8,19 +7,14 @@ using Microsoft.Extensions.Options;
 
 namespace Marketplace.Infrastructure.Storage
 {
-    public class R2StorageService : IFileStorageService
+    public class R2StorageService : IFileStorageService, IDisposable
     {
+        private readonly AmazonS3Client _client;
         private readonly R2Settings _settings;
 
         public R2StorageService(IOptions<R2Settings> options)
         {
             _settings = options.Value;
-        }
-
-        public async Task<string> SaveAsync(Stream content, string originalFileName, string subFolder)
-        {
-            var ext = Path.GetExtension(originalFileName).ToLowerInvariant();
-            var key = $"{subFolder}/{Guid.NewGuid():N}{ext}";
 
             var credentials = new BasicAWSCredentials(_settings.AccessKeyId, _settings.SecretAccessKey);
             var config = new AmazonS3Config
@@ -30,7 +24,13 @@ namespace Marketplace.Infrastructure.Storage
                 ForcePathStyle = true,
             };
 
-            using var client = new AmazonS3Client(credentials, config);
+            _client = new AmazonS3Client(credentials, config);
+        }
+
+        public async Task<string> SaveAsync(Stream content, string originalFileName, string subFolder)
+        {
+            var ext = Path.GetExtension(originalFileName).ToLowerInvariant();
+            var key = $"{subFolder}/{Guid.NewGuid():N}{ext}";
 
             var request = new PutObjectRequest
             {
@@ -39,12 +39,17 @@ namespace Marketplace.Infrastructure.Storage
                 InputStream = content,
                 ContentType = GetContentType(ext),
                 AutoCloseStream = false,
+                // R2 não suporta checksum em partes — desabilita validação padrão do SDK
+                DisableDefaultChecksumValidation = true,
+                DisablePayloadSigning = true,
             };
 
-            await client.PutObjectAsync(request);
+            await _client.PutObjectAsync(request);
 
             return $"{_settings.PublicUrl.TrimEnd('/')}/{key}";
         }
+
+        public void Dispose() => _client.Dispose();
 
         private static string GetContentType(string ext) => ext switch
         {
