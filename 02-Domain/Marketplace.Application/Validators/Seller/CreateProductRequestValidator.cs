@@ -13,6 +13,10 @@ namespace Marketplace.Application.Validators.Seller
             RuleFor(x => x.Stock).GreaterThanOrEqualTo(0).WithMessage("Estoque inválido");
             RuleFor(x => x.CategoryId).NotEmpty().WithMessage("Categoria obrigatória");
             RuleFor(x => x.Weight).GreaterThan(0).WithMessage("Peso deve ser maior que zero");
+            RuleFor(x => x.Images)
+                .NotEmpty().WithMessage("Pelo menos uma imagem é obrigatória.")
+                .Must(imgs => imgs.All(url => Uri.IsWellFormedUriString(url, UriKind.Absolute)))
+                .WithMessage("Todas as imagens devem ser URLs válidas.");
         }
     }
 }

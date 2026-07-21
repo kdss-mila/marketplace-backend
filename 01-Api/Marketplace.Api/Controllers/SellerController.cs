@@ -14,6 +14,7 @@ namespace Marketplace.Api.Controllers
         CreateProductUseCase createProduct,
         UpdateProductUseCase updateProduct,
         DeleteProductUseCase deleteProduct,
+        UploadProductImageUseCase uploadImage,
         ListSellerSalesUseCase listSales,
         SetTrackingCodeUseCase setTracking,
         CompleteSellerOnboardingUseCase completeOnboarding) : ControllerBase
@@ -22,6 +23,7 @@ namespace Marketplace.Api.Controllers
         private readonly CreateProductUseCase _createProduct = createProduct;
         private readonly UpdateProductUseCase _updateProduct = updateProduct;
         private readonly DeleteProductUseCase _deleteProduct = deleteProduct;
+        private readonly UploadProductImageUseCase _uploadImage = uploadImage;
         private readonly ListSellerSalesUseCase _listSales = listSales;
         private readonly SetTrackingCodeUseCase _setTracking = setTracking;
         private readonly CompleteSellerOnboardingUseCase _completeOnboarding = completeOnboarding;
@@ -35,6 +37,14 @@ namespace Marketplace.Api.Controllers
         {
             var product = await _createProduct.Execute(request);
             return StatusCode(StatusCodes.Status201Created, product);
+        }
+
+        [HttpPost("products/upload-image")]
+        public async Task<IActionResult> UploadImage(IFormFile file)
+        {
+            await using var stream = file.OpenReadStream();
+            var result = await _uploadImage.Execute(stream, file.FileName, file.ContentType, file.Length);
+            return Ok(result);
         }
 
         [HttpPut("products/{id}")]

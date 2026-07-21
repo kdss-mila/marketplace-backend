@@ -35,7 +35,8 @@ namespace Marketplace.Setup
         private static IServiceCollection RegisterSettings(this IServiceCollection services, IConfiguration configuration) => services
             .Configure<PlatformSettings>(configuration.GetSection("PlatformSettings"))
             .Configure<ConnectionStrings>(configuration.GetSection("ConnectionStrings"))
-            .Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
+            .Configure<JwtSettings>(configuration.GetSection("JwtSettings"))
+            .Configure<R2Settings>(configuration.GetSection("R2Settings"));
 
         private static IServiceCollection RegisterRepositoriesPostgres(this IServiceCollection services) => services
             .AddSingleton<IDbConnectionFactory, NpgsqlConnectionFactory>()
@@ -51,7 +52,7 @@ namespace Marketplace.Setup
             .AddScoped<ICurrentUserResolver, CurrentUserResolver>()
             .AddSingleton<IJwtService, JwtService>()
             .AddSingleton<IShippingCalculator, MockShippingCalculator>()
-            .AddScoped<IFileStorageService, LocalFileStorageService>();
+            .AddScoped<IFileStorageService, R2StorageService>();
 
         private static IServiceCollection RegisterUseCases(this IServiceCollection services) => services
             // Auth
@@ -76,6 +77,7 @@ namespace Marketplace.Setup
             .AddScoped<DeleteProductUseCase>()
             .AddScoped<ListSellerSalesUseCase>()
             .AddScoped<SetTrackingCodeUseCase>()
+            .AddScoped<UploadProductImageUseCase>()
             .AddScoped<CompleteSellerOnboardingUseCase>()
             // Admin
             .AddScoped<ListUsersUseCase>()
